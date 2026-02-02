@@ -22,7 +22,7 @@ dotnet add reference Shared/Psxbox.Streams/Psxbox.Streams.csproj
 - `MQTTnet` (v5.0.1.1416) - MQTT protokol implementatsiyasi
 - `SuperSimpleTcp` (v3.0.20) - TCP mijoz/server funksiyalari
 - `System.IO.Ports` (v10.0.0) - Serial port aloqasi
-- `Psxbox.Utils` - yordamchi utilitalàð
+- `Psxbox.Utils` - yordamchi utilitalï¿½ï¿½
 - `Psxbox.MQTTClient` - MQTT mijoz boshqaruvi
 
 ## Foydalanish
@@ -121,3 +121,5 @@ Ushbu kutubxona MyGateway tizimida sanoat qurilmalari (PLC, RTU, smart meters) b
 ## Litsenziya
 
 MIT License
+
+

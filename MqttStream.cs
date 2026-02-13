@@ -9,7 +9,6 @@ namespace Psxbox.Streams
     public class MqttStream : BaseStream
     {
         private IMqttClient? _mqttClient;
-        private MqttManagedClient? _managedClient;
         private MqttAutoReconnectClient? _autoClient;
         private readonly string _subTopic;
         private readonly string _pubTopic;
@@ -17,14 +16,12 @@ namespace Psxbox.Streams
         private readonly ILogger? _logger;
         private readonly CancellationTokenSource _cts = new();
         private bool _isMqttClientSubscribed = false;
-        private bool _isManagedClientSubscribed = false;
         private bool _isAutoClientSubscribed = false;
 
         public override string Name => "MQTT Stream";
 
         public override bool IsConnected =>
             _mqttClient?.IsConnected
-            ?? _managedClient?.IsConnected
             ?? _autoClient?.IsConnected
             ?? false;
 
@@ -37,15 +34,6 @@ namespace Psxbox.Streams
             this._pubTopic = pubTopic;
             this._disposeMqttClient = disposeMqttClient;
             this._logger = logger;
-        }
-
-        public MqttStream(MqttManagedClient managedClient, string subTopic, string pubTopic, int timeOut = 7000,
-            bool disposeMqttClient = false, bool use7E1 = false) : base(timeOut, use7E1)
-        {
-            this._managedClient = managedClient;
-            this._subTopic = subTopic;
-            this._pubTopic = pubTopic;
-            this._disposeMqttClient = disposeMqttClient;
         }
 
         // New constructor for auto reconnect client (MQTTnet v5)
@@ -155,11 +143,6 @@ namespace Psxbox.Streams
                     await _mqttClient.PublishAsync(msg, _cts.Token).ConfigureAwait(false);
                 }
 
-                if (_managedClient != null)
-                {
-                    await _managedClient.PublishAsync(_pubTopic, payload).ConfigureAwait(false);
-                }
-
                 if (_autoClient != null)
                 {
                     await _autoClient.PublishAsync(_pubTopic, payload).ConfigureAwait(false);
@@ -194,19 +177,6 @@ namespace Psxbox.Streams
                         await _mqttClient.SubscribeAsync(_subTopic).ConfigureAwait(false);
                         _mqttClient.ApplicationMessageReceivedAsync += MqttClient_ApplicationMessageReceivedAsync;
                         _isMqttClientSubscribed = true;
-                    }
-                }
-
-                if (_managedClient != null)
-                {
-                    if (!_managedClient.IsConnected)
-                        await _managedClient.ConnectMqttClientAsync().ConfigureAwait(false);
-
-                    if (!_isManagedClientSubscribed)
-                    {
-                        await _managedClient.SubscribeAsync(_subTopic).ConfigureAwait(false);
-                        _managedClient.OnMessage += MangedClientOnMessage;
-                        _isManagedClientSubscribed = true;
                     }
                 }
 
@@ -251,13 +221,6 @@ namespace Psxbox.Streams
                     _isMqttClientSubscribed = false;
                 }
 
-                if (_managedClient is not null && _isManagedClientSubscribed)
-                {
-                    _managedClient.OnMessage -= MangedClientOnMessage;
-                    if (_managedClient.IsConnected) await _managedClient.UnsubscribeAsync(_subTopic).ConfigureAwait(false);
-                    _isManagedClientSubscribed = false;
-                }
-
                 if (_autoClient is not null && _isAutoClientSubscribed)
                 {
                     _autoClient.OnMessage -= AutoClientOnMessage;
@@ -287,16 +250,12 @@ namespace Psxbox.Streams
                     if (_mqttClient is not null && _mqttClient.IsConnected)
                         await _mqttClient.DisconnectAsync().ConfigureAwait(false);
 
-                    if (_managedClient is not null && _managedClient.IsConnected)
-                        await _managedClient.DisconnectAsync().ConfigureAwait(false);
-
                     if (_autoClient is not null)
                     {
                         await _autoClient.StopAsync(_cts.Token).ConfigureAwait(false);
                     }
 
                     _mqttClient?.Dispose();
-                    _managedClient?.Dispose();
                     _autoClient?.Dispose();
                 }
             }
@@ -307,7 +266,6 @@ namespace Psxbox.Streams
             finally
             {
                 _mqttClient = null;
-                _managedClient = null;
                 _autoClient = null;
 
                 await base.DisposeAsync().ConfigureAwait(false);

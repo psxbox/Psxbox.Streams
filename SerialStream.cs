@@ -16,6 +16,21 @@ public class SerialStream(string portName,
     public override bool IsConnected => _serialPort?.IsOpen ?? false;
     private readonly byte[] _buffer = new byte[4096];
 
+    public int BaudRate { get => baudRate; set => baudRate = value; }
+    public Parity Parity { get => parity; set => parity = value; }
+    public int DataBits { get => dataBits; set => dataBits = value; }
+    public StopBits StopBits { get => stopBits; set => stopBits = value; }
+    public bool DtrEnable
+    {
+        get => _serialPort?.DtrEnable ?? false;
+        set { if (_serialPort != null) _serialPort.DtrEnable = value; }
+    }
+    public bool RtsEnable
+    {
+        get => _serialPort?.RtsEnable ?? false;
+        set { if (_serialPort != null) _serialPort.RtsEnable = value; }
+    }
+
     public override void Close()
     {
         CloseAsync().GetAwaiter().GetResult();

@@ -165,12 +165,15 @@ namespace Psxbox.Streams
         {
             await connectSemaphore.WaitAsync().ConfigureAwait(false);
 
+            CancellationTokenSource linkedCts = CancellationTokenSource.CreateLinkedTokenSource(_cts.Token);
+            linkedCts.CancelAfter(TimeSpan.FromSeconds(5));
+
             try
             {
                 if (_mqttClient != null)
                 {
                     if (!_mqttClient.IsConnected)
-                        await _mqttClient.ConnectAsync(_mqttClient.Options, _cts.Token).ConfigureAwait(false);
+                        await _mqttClient.ConnectAsync(_mqttClient.Options, linkedCts.Token).ConfigureAwait(false);
 
                     if (!_isMqttClientSubscribed)
                     {
@@ -183,11 +186,11 @@ namespace Psxbox.Streams
                 if (_autoClient != null)
                 {
                     if (!_autoClient.IsConnected)
-                        await _autoClient.StartAsync(_cts.Token).ConfigureAwait(false);
+                        await _autoClient.StartAsync(linkedCts.Token).ConfigureAwait(false);
 
                     if (!_isAutoClientSubscribed)
                     {
-                        await _autoClient.SubscribeAsync(_subTopic, _cts.Token).ConfigureAwait(false);
+                        await _autoClient.SubscribeAsync(_subTopic, linkedCts.Token).ConfigureAwait(false);
                         _autoClient.OnMessage += AutoClientOnMessage;
                         _isAutoClientSubscribed = true;
                     }

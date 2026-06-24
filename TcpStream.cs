@@ -19,11 +19,8 @@ namespace Psxbox.Streams
 
         private void Events_DataReceived(object? sender, DataReceivedEventArgs e)
         {
-            foreach (var item in e.Data)
-            {
-                // _data.Enqueue(item);
-                _channel.Writer.TryWrite(item);
-            }
+            if (e.Data.Count > 0)
+                _channel.Writer.TryWrite(e.Data.ToArray());
         }
 
         public override void Write(byte[] data)

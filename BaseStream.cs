@@ -9,18 +9,24 @@ namespace Psxbox.Streams
     {
         public int OperationTimeout { get => OperationTimeoutMs; set => OperationTimeoutMs = value; }
 
-        protected readonly Channel<byte> _channel = Channel.CreateUnbounded<byte>();
+        protected readonly Channel<byte[]> _channel = Channel.CreateUnbounded<byte[]>();
 
         protected int OperationTimeoutMs = operationTimeout;
         protected bool Use7E1 = use7E1;
 
+        private byte[]? _currentChunk;
+        private int _currentChunkOffset;
+
         public abstract string Name { get; }
         public abstract bool IsConnected { get; }
-        public bool Available => _channel.Reader.TryPeek(out _);
+        public bool Available => _currentChunk != null && _currentChunkOffset < _currentChunk.Length
+            || _channel.Reader.TryPeek(out _);
 
         public virtual void Flush()
         {
             while (_channel.Reader.TryRead(out _)) { }
+            _currentChunk = null;
+            _currentChunkOffset = 0;
         }
 
         // ====================== SINXRON READ ======================
@@ -56,8 +62,34 @@ namespace Psxbox.Streams
             {
                 cts.CancelAfter(OperationTimeoutMs);
 
-                var b = await _channel.Reader.ReadAsync(cts.Token).ConfigureAwait(false);
-                return Use7E1 ? Converters.ConvertTo7Bit(b) : b;
+                // Check if we have buffered bytes from a previous chunk
+                if (_currentChunk != null && _currentChunkOffset < _currentChunk.Length)
+                {
+                    var b = _currentChunk[_currentChunkOffset++];
+                    if (_currentChunkOffset >= _currentChunk.Length)
+                    {
+                        _currentChunk = null;
+                        _currentChunkOffset = 0;
+                    }
+                    return Use7E1 ? Converters.ConvertTo7Bit(b) : b;
+                }
+
+                // Read new chunk from channel
+                var chunk = await _channel.Reader.ReadAsync(cts.Token).ConfigureAwait(false);
+
+                if (chunk.Length == 0)
+                    throw new TimeoutException("Empty chunk received");
+
+                _currentChunk = chunk;
+                _currentChunkOffset = 0;
+
+                var firstByte = chunk[_currentChunkOffset++];
+                if (_currentChunkOffset >= _currentChunk.Length)
+                {
+                    _currentChunk = null;
+                    _currentChunkOffset = 0;
+                }
+                return Use7E1 ? Converters.ConvertTo7Bit(firstByte) : firstByte;
             }
             catch (OperationCanceledException)
             {
@@ -71,15 +103,6 @@ namespace Psxbox.Streams
             if (length <= 0)
                 return [];
 
-            // Optimallashtirish: bitta bayt uchun to'g'ridan-to'g'ri ReadAsync
-            if (length == 1)
-            {
-                using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
-                linkedCts.CancelAfter(timeout);
-                var b = await _channel.Reader.ReadAsync(linkedCts.Token).ConfigureAwait(false);
-                return [b];
-            }
-
             var buffer = ArrayPool<byte>.Shared.Rent(length);
             var received = 0;
 
@@ -90,12 +113,30 @@ namespace Psxbox.Streams
             {
                 while (received < length)
                 {
-                    await _channel.Reader.WaitToReadAsync(cts.Token).ConfigureAwait(false);
-
-                    while (received < length && _channel.Reader.TryRead(out var b))
+                    // Use remaining bytes from current chunk first
+                    if (_currentChunk != null && _currentChunkOffset < _currentChunk.Length)
                     {
-                        buffer[received++] = b;
+                        var remaining = _currentChunk.Length - _currentChunkOffset;
+                        var needed = length - received;
+                        var toCopy = Math.Min(remaining, needed);
+
+                        Array.Copy(_currentChunk, _currentChunkOffset, buffer, received, toCopy);
+                        received += toCopy;
+                        _currentChunkOffset += toCopy;
+
+                        if (_currentChunkOffset >= _currentChunk.Length)
+                        {
+                            _currentChunk = null;
+                            _currentChunkOffset = 0;
+                        }
+
+                        continue;
                     }
+
+                    // Read next chunk from channel
+                    var chunk = await _channel.Reader.ReadAsync(cts.Token).ConfigureAwait(false);
+                    _currentChunk = chunk;
+                    _currentChunkOffset = 0;
                 }
 
                 return buffer.AsSpan(0, received).ToArray();

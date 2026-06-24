@@ -79,10 +79,9 @@ public class SerialStream(string portName,
 
             if (bytesReaded > 0)
             {
-                for (var i = 0; i < bytesReaded; i++)
-                {
-                    _channel.Writer.TryWrite(_buffer[i]);
-                }
+                var chunk = new byte[bytesReaded];
+                Array.Copy(_buffer, chunk, bytesReaded);
+                _channel.Writer.TryWrite(chunk);
             }
         };
 

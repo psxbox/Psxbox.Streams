@@ -53,10 +53,8 @@ namespace Psxbox.Streams
 
             LogReceivedMessage(topic, payload);
 
-            foreach (var item in payload)
-            {
-                _channel.Writer.TryWrite(item);
-            }
+            if (payload != null && payload.Length > 0)
+                _channel.Writer.TryWrite(payload);
 
             return Task.CompletedTask;
         }
@@ -67,10 +65,8 @@ namespace Psxbox.Streams
 
             LogReceivedMessage(topic, payload);
 
-            foreach (var item in payload)
-            {
-                _channel.Writer.TryWrite(item);
-            }
+            if (payload != null && payload.Length > 0)
+                _channel.Writer.TryWrite(payload);
 
             return Task.CompletedTask;
         }
@@ -86,10 +82,8 @@ namespace Psxbox.Streams
 
             LogReceivedMessage(topic, payload);
 
-            foreach (var item in payload)
-            {
-                _channel.Writer.TryWrite(item);
-            }
+            if (payload.Length > 0)
+                _channel.Writer.TryWrite(payload);
 
             return Task.CompletedTask;
         }

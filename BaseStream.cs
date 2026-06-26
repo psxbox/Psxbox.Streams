@@ -62,11 +62,13 @@ namespace Psxbox.Streams
             {
                 cts.CancelAfter(OperationTimeoutMs);
 
-                // Check if we have buffered bytes from a previous chunk
-                if (_currentChunk != null && _currentChunkOffset < _currentChunk.Length)
+                // Check if we have buffered bytes from a previous chunk.
+                // Snapshot the field once to avoid race with Flush().
+                var current = _currentChunk;
+                if (current != null && _currentChunkOffset < current.Length)
                 {
-                    var b = _currentChunk[_currentChunkOffset++];
-                    if (_currentChunkOffset >= _currentChunk.Length)
+                    var b = current[_currentChunkOffset++];
+                    if (_currentChunkOffset >= current.Length)
                     {
                         _currentChunk = null;
                         _currentChunkOffset = 0;
@@ -84,7 +86,7 @@ namespace Psxbox.Streams
                 _currentChunkOffset = 0;
 
                 var firstByte = chunk[_currentChunkOffset++];
-                if (_currentChunkOffset >= _currentChunk.Length)
+                if (_currentChunkOffset >= chunk.Length)
                 {
                     _currentChunk = null;
                     _currentChunkOffset = 0;
@@ -113,18 +115,19 @@ namespace Psxbox.Streams
             {
                 while (received < length)
                 {
-                    // Use remaining bytes from current chunk first
-                    if (_currentChunk != null && _currentChunkOffset < _currentChunk.Length)
+                    // Snapshot the field once to avoid race with Flush().
+                    var current = _currentChunk;
+                    if (current != null && _currentChunkOffset < current.Length)
                     {
-                        var remaining = _currentChunk.Length - _currentChunkOffset;
+                        var remaining = current.Length - _currentChunkOffset;
                         var needed = length - received;
                         var toCopy = Math.Min(remaining, needed);
 
-                        Array.Copy(_currentChunk, _currentChunkOffset, buffer, received, toCopy);
+                        Array.Copy(current, _currentChunkOffset, buffer, received, toCopy);
                         received += toCopy;
                         _currentChunkOffset += toCopy;
 
-                        if (_currentChunkOffset >= _currentChunk.Length)
+                        if (_currentChunkOffset >= current.Length)
                         {
                             _currentChunk = null;
                             _currentChunkOffset = 0;
@@ -143,6 +146,8 @@ namespace Psxbox.Streams
             }
             catch (OperationCanceledException)
             {
+                _currentChunk = null;
+                _currentChunkOffset = 0;
                 throw new TimeoutException($"Timeout: {received}/{length} bayt o'qildi.");
             }
             finally

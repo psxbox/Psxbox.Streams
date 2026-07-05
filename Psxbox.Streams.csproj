@@ -9,9 +9,9 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="MQTTnet" Version="5.1.0.1559" />
-    <PackageReference Include="SuperSimpleTcp" Version="3.0.23" />
-    <PackageReference Include="System.IO.Ports" Version="10.0.8" />
+    <PackageReference Include="MQTTnet" Version="5.2.0.1603" />
+    <PackageReference Include="SuperSimpleTcp" Version="3.1.0" />
+    <PackageReference Include="System.IO.Ports" Version="10.0.9" />
   </ItemGroup>
 
   <ItemGroup>

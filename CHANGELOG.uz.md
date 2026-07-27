@@ -1,5 +1,22 @@
 # O'zgarishlar Tarixi
 
+## [3.0.1] - 2026-07-27
+
+### 🐛 Tuzatildi
+
+- `Flush` metodidagi poyga holati (race condition) tuzatildi — `_currentChunk` dan snapshot olish orqali
+- Timeout sodir bo'lganda holatni tiklash (reset) qo'shildi
+
+### 🚀 Optimallashtirildi
+
+- Kanal I/O operatsiyalari baytma-bayt o'rniga `byte[]` bloklarida bajarildi
+
+### 🔄 O'zgartirildi
+
+- `System.IO.Ports` paketi `10.0.8` versiyasiga yangilandi
+
+---
+
 ## [3.0.0] - 2026-04-22
 
 ### 🗑️ O'chirildi

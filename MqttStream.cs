@@ -71,6 +71,39 @@ namespace Psxbox.Streams
             return Task.CompletedTask;
         }
 
+        // MqttAutoReconnectClient/IMqttClient CleanStart(true) bilan ulanadi, shuning uchun
+        // broker har bir qayta ulanishda (masalan tarmoq uzilishidan keyingi fon rejimidagi
+        // avtomatik reconnect) oldingi obunani unutadi. Bu handlerlar har safar ulanish
+        // (qayta) tiklanganda obunani qaytadan o'rnatadi — aks holda stream "ulangan" bo'lib
+        // ko'rinadi-yu, hech qanday xabar hech qachon kelmay qoladi.
+        private async Task AutoClient_ConnectedAsync()
+        {
+            if (_autoClient is null) return;
+
+            try
+            {
+                await _autoClient.SubscribeAsync(_subTopic).ConfigureAwait(false);
+            }
+            catch (Exception ex)
+            {
+                _logger?.LogWarning(ex, "Qayta ulanishdan keyin {Topic} ga qayta obuna bo'lishda xato", _subTopic);
+            }
+        }
+
+        private async Task MqttClient_ConnectedAsync(MqttClientConnectedEventArgs arg)
+        {
+            if (_mqttClient is null) return;
+
+            try
+            {
+                await _mqttClient.SubscribeAsync(_subTopic).ConfigureAwait(false);
+            }
+            catch (Exception ex)
+            {
+                _logger?.LogWarning(ex, "Qayta ulanishdan keyin {Topic} ga qayta obuna bo'lishda xato", _subTopic);
+            }
+        }
+
         private Task MqttClient_ApplicationMessageReceivedAsync(MqttApplicationMessageReceivedEventArgs arg)
         {
             var topic = arg.ApplicationMessage.Topic;
@@ -173,6 +206,7 @@ namespace Psxbox.Streams
                     {
                         await _mqttClient.SubscribeAsync(_subTopic).ConfigureAwait(false);
                         _mqttClient.ApplicationMessageReceivedAsync += MqttClient_ApplicationMessageReceivedAsync;
+                        _mqttClient.ConnectedAsync += MqttClient_ConnectedAsync;
                         _isMqttClientSubscribed = true;
                     }
                 }
@@ -186,6 +220,7 @@ namespace Psxbox.Streams
                     {
                         await _autoClient.SubscribeAsync(_subTopic, linkedCts.Token).ConfigureAwait(false);
                         _autoClient.OnMessage += AutoClientOnMessage;
+                        _autoClient.OnConnected += AutoClient_ConnectedAsync;
                         _isAutoClientSubscribed = true;
                     }
                 }
@@ -214,6 +249,7 @@ namespace Psxbox.Streams
                 if (_mqttClient is not null && _isMqttClientSubscribed)
                 {
                     _mqttClient.ApplicationMessageReceivedAsync -= MqttClient_ApplicationMessageReceivedAsync;
+                    _mqttClient.ConnectedAsync -= MqttClient_ConnectedAsync;
                     if (_mqttClient.IsConnected) await _mqttClient.UnsubscribeAsync(_subTopic).ConfigureAwait(false);
                     _isMqttClientSubscribed = false;
                 }
@@ -221,6 +257,7 @@ namespace Psxbox.Streams
                 if (_autoClient is not null && _isAutoClientSubscribed)
                 {
                     _autoClient.OnMessage -= AutoClientOnMessage;
+                    _autoClient.OnConnected -= AutoClient_ConnectedAsync;
                     if (_autoClient.IsConnected) await _autoClient.UnsubscribeAsync(_subTopic, _cts.Token).ConfigureAwait(false);
                     _isAutoClientSubscribed = false;
                 }
